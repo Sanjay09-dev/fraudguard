@@ -26,7 +26,8 @@ public class TransactionController {
 
     public record TransactionResponse(Long id, Long accountId, String merchant, BigDecimal amount,
                                       String currency, String country, String deviceId,
-                                      Decision decision, String reason, Instant createdAt) {}
+                                      Decision decision, String reason, BigDecimal score,
+                                      Instant createdAt) {}
 
     private final TransactionService service;
     private final TransactionRepository txns;
@@ -66,6 +67,6 @@ public class TransactionController {
     private TransactionResponse toResponse(Transaction t) {
         return new TransactionResponse(t.getId(), t.getAccountId(), t.getMerchant(), t.getAmount(),
                 t.getCurrency(), t.getCountry(), t.getDeviceId(), t.getDecision(),
-                t.getDecisionReason(), t.getCreatedAt());
+                t.getDecisionReason(), t.getFinalScore(), t.getCreatedAt());
     }
 }
