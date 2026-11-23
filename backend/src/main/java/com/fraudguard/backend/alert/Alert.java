@@ -39,4 +39,10 @@ public class Alert {
     public Long getReviewedBy() { return reviewedBy; }
     public Instant getReviewedAt() { return reviewedAt; }
     public Instant getCreatedAt() { return createdAt; }
+
+    public void resolve(AlertStatus newStatus, Long reviewerId) {
+        this.status = newStatus;
+        this.reviewedBy = reviewerId;
+        this.reviewedAt = Instant.now();
+    }
 }
