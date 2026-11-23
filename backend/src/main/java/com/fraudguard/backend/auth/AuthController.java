@@ -15,10 +15,12 @@ public class AuthController {
 
     private final UserRepository users;
     private final PasswordEncoder encoder;
+    private final JwtService jwt;
 
-    public AuthController(UserRepository users, PasswordEncoder encoder) {
+    public AuthController(UserRepository users, PasswordEncoder encoder, JwtService jwt) {
         this.users = users;
         this.encoder = encoder;
+        this.jwt = jwt;
     }
 
     @PostMapping("/register")
@@ -33,5 +35,14 @@ public class AuthController {
         User saved = users.save(new User(
                 req.username(), req.email(), encoder.encode(req.password()), Role.ANALYST));
         return new UserResponse(saved.getId(), saved.getUsername(), saved.getEmail(), saved.getRole());
+    }
+
+    @PostMapping("/login")
+    public LoginResponse login(@Valid @RequestBody LoginRequest req) {
+        User user = users.findByUsername(req.username())
+                .filter(u -> encoder.matches(req.password(), u.getPasswordHash()))
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED, "Invalid username or password"));
+        return new LoginResponse(jwt.generate(user), "Bearer");
     }
 }
