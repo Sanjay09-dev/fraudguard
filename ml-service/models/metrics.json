@@ -1,0 +1,29 @@
+{
+  "dataset": {
+    "rows": 284807,
+    "fraud": 492,
+    "test_fraud": 98
+  },
+  "logistic_regression": {
+    "pr_auc": 0.7106,
+    "roc_auc": 0.9729,
+    "threshold": 1.0,
+    "precision": 0.8,
+    "recall": 0.8163,
+    "true_positives": 80,
+    "false_positives": 20,
+    "false_negatives": 18,
+    "true_negatives": 56844
+  },
+  "xgboost": {
+    "pr_auc": 0.8023,
+    "roc_auc": 0.9769,
+    "threshold": 0.6524,
+    "precision": 0.7961,
+    "recall": 0.8367,
+    "true_positives": 82,
+    "false_positives": 21,
+    "false_negatives": 16,
+    "true_negatives": 56843
+  }
+}

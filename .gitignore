@@ -23,3 +23,8 @@
 hs_err_pid*
 replay_pid*
 log.txt
+
+ml-service/.venv/
+ml-service/data/
+__pycache__/
+*.pyc
