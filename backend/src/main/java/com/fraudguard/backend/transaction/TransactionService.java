@@ -6,6 +6,7 @@ import com.fraudguard.backend.alert.Alert;
 import com.fraudguard.backend.alert.AlertRepository;
 import com.fraudguard.backend.audit.AuditLog;
 import com.fraudguard.backend.audit.AuditLogRepository;
+import com.fraudguard.backend.ml.MlClient;
 import com.fraudguard.backend.rules.RuleContext;
 import com.fraudguard.backend.rules.RuleEngine;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -17,6 +18,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -29,21 +31,25 @@ public class TransactionService {
     private final AlertRepository alerts;
     private final AuditLogRepository audit;
     private final RuleEngine engine;
+    private final MlClient ml;
     private final TransactionTemplate tx;
 
     public TransactionService(TransactionRepository txns, AccountRepository accounts,
                               AlertRepository alerts, AuditLogRepository audit,
-                              RuleEngine engine, PlatformTransactionManager txManager) {
+                              RuleEngine engine, MlClient ml,
+                              PlatformTransactionManager txManager) {
         this.txns = txns;
         this.accounts = accounts;
         this.alerts = alerts;
         this.audit = audit;
         this.engine = engine;
+        this.ml = ml;
         this.tx = new TransactionTemplate(txManager);
     }
 
     public Result submit(String key, Long accountId, String merchant, BigDecimal amount,
-                         String currency, String country, String deviceId) {
+                         String currency, String country, String deviceId,
+                         Map<String, Double> features) {
 
         Optional<Transaction> existing = txns.findByIdempotencyKey(key);
         if (existing.isPresent()) {
@@ -54,11 +60,20 @@ public class TransactionService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found"));
 
         RuleContext ctx = new RuleContext(account, amount, currency, country, deviceId, Instant.now());
-        RuleEngine.Outcome outcome = engine.evaluate(ctx);
+
+        // The network call to the ML service happens BEFORE the database transaction starts.
+        boolean mlRequested = features != null && !features.isEmpty();
+        Optional<MlClient.MlResult> mlResult = ml.score(features);
+        RuleEngine.Outcome outcome = engine.evaluate(ctx, mlResult);
+
+        String reason = (mlRequested && mlResult.isEmpty())
+                ? outcome.reason() + "; ML unavailable, rules only"
+                : outcome.reason();
+        String mlStatus = mlResult.isPresent() ? "used" : (mlRequested ? "unavailable" : "not_provided");
 
         try {
-            Transaction saved = tx.execute(status ->
-                    persist(key, accountId, merchant, amount, currency, country, deviceId, outcome));
+            Transaction saved = tx.execute(status -> persist(key, accountId, merchant, amount,
+                    currency, country, deviceId, outcome, reason, mlStatus));
             return new Result(saved, true);
         } catch (DataIntegrityViolationException e) {
             // Two identical requests raced; the other one won. Return its result.
@@ -69,10 +84,10 @@ public class TransactionService {
 
     private Transaction persist(String key, Long accountId, String merchant, BigDecimal amount,
                                 String currency, String country, String deviceId,
-                                RuleEngine.Outcome outcome) {
+                                RuleEngine.Outcome outcome, String reason, String mlStatus) {
         Transaction t = new Transaction(accountId, key, merchant, amount, currency, country,
-                deviceId, outcome.decision(), outcome.reason());
-        t.setScores(outcome.score(), outcome.score());
+                deviceId, outcome.decision(), reason);
+        t.setScores(outcome.ruleScore(), outcome.mlScore(), outcome.finalScore());
         Transaction saved = txns.save(t);
 
         if (outcome.decision() != Decision.APPROVE) {
@@ -81,7 +96,8 @@ public class TransactionService {
 
         String rulesText = outcome.triggered().isEmpty() ? "none" : String.join(",", outcome.triggered());
         audit.save(new AuditLog(saved.getId(), "DECISION",
-                "decision=" + outcome.decision() + ", score=" + outcome.score() + ", rules=" + rulesText));
+                "decision=" + outcome.decision() + ", score=" + outcome.finalScore()
+                        + ", rules=" + rulesText + ", ml=" + mlStatus));
         return saved;
     }
 

@@ -79,10 +79,13 @@ public class Transaction {
     public Decision getDecision() { return decision; }
     public String getDecisionReason() { return decisionReason; }
     public Instant getCreatedAt() { return createdAt; }
-        public void setScores(BigDecimal ruleScore, BigDecimal finalScore) {
+    public void setScores(BigDecimal ruleScore, BigDecimal mlScore, BigDecimal finalScore) {
         this.ruleScore = ruleScore;
+        this.mlScore = mlScore;
         this.finalScore = finalScore;
     }
 
+    public BigDecimal getRuleScore() { return ruleScore; }
+    public BigDecimal getMlScore() { return mlScore; }
     public BigDecimal getFinalScore() { return finalScore; }
 }

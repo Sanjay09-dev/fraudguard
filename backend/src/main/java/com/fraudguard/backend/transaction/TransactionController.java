@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/transactions")
@@ -22,12 +23,13 @@ public class TransactionController {
             @NotNull @DecimalMin("0.01") @Digits(integer = 12, fraction = 2) BigDecimal amount,
             @NotBlank @Pattern(regexp = "[A-Z]{3}") String currency,
             @NotBlank @Pattern(regexp = "[A-Z]{2}") String country,
-            @Size(max = 64) String deviceId) {}
+            @Size(max = 64) String deviceId,
+            @Size(max = 64) Map<String, Double> features) {}
 
     public record TransactionResponse(Long id, Long accountId, String merchant, BigDecimal amount,
                                       String currency, String country, String deviceId,
                                       Decision decision, String reason, BigDecimal score,
-                                      Instant createdAt) {}
+                                      BigDecimal mlScore, Instant createdAt) {}
 
     private final TransactionService service;
     private final TransactionRepository txns;
@@ -43,7 +45,7 @@ public class TransactionController {
             @Valid @RequestBody CreateRequest req) {
 
         TransactionService.Result result = service.submit(key, req.accountId(), req.merchant(),
-                req.amount(), req.currency(), req.country(), req.deviceId());
+                req.amount(), req.currency(), req.country(), req.deviceId(), req.features());
 
         HttpStatus status = result.created() ? HttpStatus.CREATED : HttpStatus.OK;
         return ResponseEntity.status(status).body(toResponse(result.transaction()));
@@ -67,6 +69,6 @@ public class TransactionController {
     private TransactionResponse toResponse(Transaction t) {
         return new TransactionResponse(t.getId(), t.getAccountId(), t.getMerchant(), t.getAmount(),
                 t.getCurrency(), t.getCountry(), t.getDeviceId(), t.getDecision(),
-                t.getDecisionReason(), t.getFinalScore(), t.getCreatedAt());
+                t.getDecisionReason(), t.getFinalScore(), t.getMlScore(), t.getCreatedAt());
     }
 }
