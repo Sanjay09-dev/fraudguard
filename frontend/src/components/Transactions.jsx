@@ -1,15 +1,23 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
-import { DECISION_STYLE, money, pct } from '../format'
+import { money, parseReasons, pct } from '../format'
+import { TONE_DOT, toneFor } from '../risk'
+import DecisionBadge from './DecisionBadge'
+import LiveStamp from './LiveStamp'
+import PageHeader from './PageHeader'
+import Pager from './Pager'
+import Segmented from './Segmented'
 
 const PAGE_SIZE = 20
 
 const FILTERS = [
-  { value: 'ALL', label: 'All decisions' },
+  { value: 'ALL', label: 'All' },
   { value: 'APPROVE', label: 'Approved' },
-  { value: 'REVIEW', label: 'Review' },
+  { value: 'REVIEW', label: 'Needs review' },
   { value: 'BLOCK', label: 'Blocked' },
 ]
+
+const th = 'px-4 py-2.5 font-medium'
 
 export default function Transactions() {
   const [decision, setDecision] = useState('ALL')
@@ -17,6 +25,7 @@ export default function Transactions() {
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [updatedAt, setUpdatedAt] = useState(null)
 
   useEffect(() => {
     let active = true
@@ -29,9 +38,10 @@ export default function Transactions() {
         if (active) {
           setRows(data)
           setError('')
+          setUpdatedAt(new Date())
         }
       } catch {
-        if (active) setError('Could not load transactions.')
+        if (active) setError('Could not load transactions. Check that the backend is running.')
       } finally {
         if (active) setLoading(false)
       }
@@ -58,90 +68,75 @@ export default function Transactions() {
 
   return (
     <section>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-semibold">Transactions</h2>
-          <p className="text-sm text-slate-500">Newest first · refreshes every 10 seconds</p>
-        </div>
-        <select
-          value={decision}
-          onChange={(e) => changeDecision(e.target.value)}
-          className="rounded border bg-white px-3 py-2 text-sm"
-        >
-          {FILTERS.map((f) => (
-            <option key={f.value} value={f.value}>
-              {f.label}
-            </option>
-          ))}
-        </select>
-      </div>
+      <PageHeader title="Transactions" note={<LiveStamp at={updatedAt} />}>
+        <Segmented label="Filter by decision" options={FILTERS} value={decision} onChange={changeDecision} />
+      </PageHeader>
 
-      {error && <p className="mb-4 rounded bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      {error && (
+        <p role="alert" className="mb-4 rounded-lg bg-danger-tint px-3.5 py-2.5 text-sm text-danger-ink">
+          {error}
+        </p>
+      )}
 
       {loading && rows.length === 0 ? (
-        <p className="text-slate-500">Loading…</p>
+        <p className="text-muted">Loading transactions…</p>
       ) : rows.length === 0 ? (
-        <p className="rounded-xl border bg-white p-6 text-slate-500">No transactions match this filter.</p>
+        <div className="rounded-lg border border-line bg-white p-8">
+          <p className="font-display text-lg font-semibold">No transactions match this filter</p>
+          <p className="mt-1 text-muted">Try another filter, or wait for new payments to arrive.</p>
+        </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border bg-white shadow-sm">
-          <table className="w-full min-w-[760px] text-left text-sm">
-            <thead className="border-b bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+        <div className="overflow-x-auto rounded-lg border border-line bg-white">
+          <table className="w-full min-w-[900px] text-left text-sm">
+            <thead className="border-b border-line bg-mist/60 text-muted">
               <tr>
-                <th className="px-3 py-2">#</th>
-                <th className="px-3 py-2">Time</th>
-                <th className="px-3 py-2">Account</th>
-                <th className="px-3 py-2">Merchant</th>
-                <th className="px-3 py-2 text-right">Amount</th>
-                <th className="px-3 py-2">Country</th>
-                <th className="px-3 py-2">Decision</th>
-                <th className="px-3 py-2 text-right">Risk</th>
-                <th className="px-3 py-2 text-right">ML</th>
-                <th className="px-3 py-2">Why</th>
+                <th className={th}>ID</th>
+                <th className={th}>Time</th>
+                <th className={th}>Account</th>
+                <th className={th}>Merchant</th>
+                <th className={`${th} text-right`}>Amount</th>
+                <th className={th}>Country</th>
+                <th className={th}>Decision</th>
+                <th className={`${th} text-right`}>Risk</th>
+                <th className={`${th} text-right`}>Model</th>
+                <th className={th}>Reason</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((t) => (
-                <tr key={t.id} className="border-b last:border-0 hover:bg-slate-50">
-                  <td className="px-3 py-2 text-slate-500">{t.id}</td>
-                  <td className="whitespace-nowrap px-3 py-2">{new Date(t.createdAt).toLocaleString()}</td>
-                  <td className="px-3 py-2">#{t.accountId}</td>
-                  <td className="px-3 py-2">{t.merchant}</td>
-                  <td className="whitespace-nowrap px-3 py-2 text-right">{money(t.amount, t.currency)}</td>
-                  <td className="px-3 py-2">{t.country}</td>
-                  <td className="px-3 py-2">
-                    <span className={`rounded px-2 py-0.5 text-xs font-semibold ${DECISION_STYLE[t.decision] ?? ''}`}>
-                      {t.decision}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 text-right">{pct(t.score)}</td>
-                  <td className="px-3 py-2 text-right">{pct(t.mlScore)}</td>
-                  <td className="max-w-xs truncate px-3 py-2 text-slate-500" title={t.reason}>
-                    {t.reason}
-                  </td>
-                </tr>
-              ))}
+              {rows.map((t) => {
+                const reasons = parseReasons(t.reason)
+                return (
+                  <tr key={t.id} className="border-b border-line last:border-0 hover:bg-mist/50">
+                    <td className="px-4 py-3 text-muted">{t.id}</td>
+                    <td className="whitespace-nowrap px-4 py-3">{new Date(t.createdAt).toLocaleString()}</td>
+                    <td className="px-4 py-3">#{t.accountId}</td>
+                    <td className="px-4 py-3">{t.merchant}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-right font-medium tabular-nums">
+                      {money(t.amount, t.currency)}
+                    </td>
+                    <td className="px-4 py-3">{t.country}</td>
+                    <td className="px-4 py-3">
+                      <DecisionBadge decision={t.decision} />
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums">
+                      <span className="inline-flex items-center justify-end gap-2">
+                        <span className={`size-2 rounded-full ${TONE_DOT[toneFor(Number(t.score) || 0)]}`} />
+                        {pct(t.score)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums text-muted">{pct(t.mlScore)}</td>
+                    <td className="max-w-[16rem] truncate px-4 py-3 text-muted" title={t.reason}>
+                      {reasons.map((r) => r.label).join(', ') || 'No rules fired'}
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
       )}
 
-      <div className="mt-6 flex items-center justify-between text-sm">
-        <button
-          disabled={page === 0}
-          onClick={() => changePage(page - 1)}
-          className="rounded border bg-white px-3 py-1.5 disabled:opacity-50"
-        >
-          Previous
-        </button>
-        <span className="text-slate-500">Page {page + 1}</span>
-        <button
-          disabled={rows.length < PAGE_SIZE}
-          onClick={() => changePage(page + 1)}
-          className="rounded border bg-white px-3 py-1.5 disabled:opacity-50"
-        >
-          Next
-        </button>
-      </div>
+      <Pager page={page} onChange={changePage} hasNext={rows.length >= PAGE_SIZE} />
     </section>
   )
 }

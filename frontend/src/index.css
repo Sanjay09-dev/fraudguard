@@ -1,1 +1,56 @@
 @import "tailwindcss";
+
+@theme static {
+  --font-display: 'Bricolage Grotesque Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Source Sans 3 Variable', ui-sans-serif, system-ui, sans-serif;
+
+  --color-ink: #10252f;
+  --color-ink-soft: #1c3b49;
+  --color-mist: #edf1f2;
+  --color-line: #d5dde0;
+  --color-muted: #5b6b73;
+  --color-steel: #1f6f8b;
+
+  --color-safe: #2f9e8f;
+  --color-safe-tint: #ddf1ee;
+  --color-safe-ink: #17685d;
+  --color-caution: #e3a008;
+  --color-caution-tint: #fbefc9;
+  --color-caution-ink: #6e4c00;
+  --color-danger: #d6393f;
+  --color-danger-tint: #fbe3e4;
+  --color-danger-ink: #a5252b;
+}
+
+body {
+  background-color: var(--color-mist);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-steel);
+  outline-offset: 2px;
+}
+
+.on-dark :focus-visible {
+  outline-color: #ffffff;
+}
+
+.ruler-pin {
+  left: var(--x);
+}
+
+.ruler-pin-intro {
+  animation: pin-in 900ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: var(--delay, 0ms);
+}
+
+@keyframes pin-in {
+  from { left: 0%; opacity: 0; }
+  to { left: var(--x); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ruler-pin-intro { animation: none; }
+}
