@@ -1,8 +1,6 @@
 package com.fraudguard.backend.account;
-
 import jakarta.persistence.*;
 import java.time.Instant;
-
 @Entity
 @Table(name = "accounts")
 public class Account {

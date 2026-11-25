@@ -53,16 +53,24 @@ public class TransactionController {
 
     @GetMapping
     public List<TransactionResponse> list(@RequestParam(required = false) Long accountId,
+                                          @RequestParam(required = false) Decision decision,
                                           @RequestParam(defaultValue = "0") int page,
                                           @RequestParam(defaultValue = "20") int size) {
         int safePage = Math.max(page, 0);
         int safeSize = Math.min(Math.max(size, 1), 100);
+        PageRequest paged = PageRequest.of(safePage, safeSize);
 
-        List<Transaction> rows = (accountId == null)
-                ? txns.findAll(PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "createdAt")))
-                      .getContent()
-                : txns.findByAccountIdOrderByCreatedAtDesc(accountId, PageRequest.of(safePage, safeSize));
-
+        List<Transaction> rows;
+        if (accountId != null && decision != null) {
+            rows = txns.findByAccountIdAndDecisionOrderByCreatedAtDesc(accountId, decision, paged);
+        } else if (accountId != null) {
+            rows = txns.findByAccountIdOrderByCreatedAtDesc(accountId, paged);
+        } else if (decision != null) {
+            rows = txns.findByDecisionOrderByCreatedAtDesc(decision, paged);
+        } else {
+            rows = txns.findAll(PageRequest.of(safePage, safeSize,
+                    Sort.by(Sort.Direction.DESC, "createdAt"))).getContent();
+        }
         return rows.stream().map(this::toResponse).toList();
     }
 
