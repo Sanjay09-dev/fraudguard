@@ -28,4 +28,4 @@ export function parseReasons(text) {
     }
     return { label: part, detail: '' }
   })
-}
+}  

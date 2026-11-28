@@ -28,3 +28,7 @@ ml-service/.venv/
 ml-service/data/
 __pycache__/
 *.pyc
+.env
+.env.*
+!.env.example
+.vscode/

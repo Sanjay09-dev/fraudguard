@@ -1,0 +1,12 @@
+.git
+.venv
+__pycache__
+*.py[cod]
+.pytest_cache
+data
+tests
+train.py
+simulate.py
+smoke_test.py
+requirements-dev.txt
+pytest.ini
